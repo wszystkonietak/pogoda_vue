@@ -1,27 +1,47 @@
 <template>
 <div :class="weatherClass">
     <section id="searching">
-    <input type="text" v-model="location" placeholder="Enter location">
-    <button @click="search_place">Search</button>
+        <input type="text" v-model="location" placeholder="Enter location">
+        <button @click="search_place">Search</button>
     </section>
     <a v-if="message!=''">{{message}}</a>
 
-    <div v-if="data.name && !isLoading">
-        <section id="top">
-        <section id="celcius">
-            <h1>{{kelvinToCelsius(data.main.temp)}}°C</h1>
-            <img v-if="data.weather && data.weather.length > 0" :src="'https://openweathermap.org/img/wn/' + data.weather[0].icon + '@2x.png'" alt="Weather Icon" width="70%">
-        </section>
-        <img id="flag" :src="'https://flagicons.lipis.dev/flags/4x3/' + data.sys.country.toLowerCase() + '.svg'" alt="flag" width="7%">
-        </section>
-        <p>{{data.main.temp}}°F</p>
-        <p>Wschod slonca {{convertUnixTimestamp(data.sys.sunrise)}}</p>
-        <p>Zachod slonca {{convertUnixTimestamp(data.sys.sunset)}}</p>
+    <div>{{prediction_data}}</div>
+    <div id="city" v-if="data.name && !isLoading">
+        <h1>{{data.name}}</h1>
         <p>Pomiar wykonano {{getTimeAgo(data.dt)}}</p>
+        <section id="data">
+            <section id="left">
+                <section id="degrees">
+                    <img v-if="data.weather && data.weather.length > 0" :src="'https://openweathermap.org/img/wn/' + data.weather[0].icon + '@2x.png'" alt="Weather Icon" width="100px" height="100px">
+                    <h4>{{kelvinToCelsius(data.main.temp)}}<sup>°C | {{data.main.temp}}°F</sup></h4>
+                </section>
+                <section id="info">
+                    <p>wiatr: {{data.wind.speed}} km/h</p>
+                    <p>wilgotnosc: {{data.main.humidity}}%</p>
+                    <p>cisnienie: {{data.main.pressure}}</p>
+                </section>
+            </section>
+            <section id="right">
 
-        
+                <section id="weather">
+                    <h4>Pogoda</h4>
+                    <img id="flag" :src="'https://flagicons.lipis.dev/flags/4x3/' + data.sys.country.toLowerCase() + '.svg'" alt="flag" width="7%">
+                </section>
+                <h5>{{data.weather[0].main}}</h5>
+                <p>Wschod slonca {{convertUnixTimestamp(data.sys.sunrise)}}</p>
+                <p>Zachod slonca {{convertUnixTimestamp(data.sys.sunset)}}</p>
+            </section>
+        </section>
+
         <div id="chart">
+            <section id="chart_options">
+                <button @click="chart_temperature">temperature</button>
+                <button @click="chart_pressure">cisnienie</button>
+                <button @click="chart_humidity">wilgotnosc</button>
+            </section>
             <Line ref="chart" id="my-chart-id" :options="chartOptions" :data="prediction_temperature" />
+
         </div>
     </div>
     <div v-if="isLoading" class="loader"></div>
@@ -120,6 +140,21 @@ export default {
         kelvinToCelsius(temp) {
             return (temp - 273.15).toFixed(2);
         },
+        getHour(timestamp) {
+            const date = new Date(timestamp * 1000);
+            const options = {
+                hour12: false
+            };
+            return date.getHours();
+        },
+        getDayName(timestamp) {
+            const date = new Date(timestamp * 1000);
+            const options = {
+                hour12: false
+            };
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; 
+            return days[date.getDay()];
+        },
         convertUnixTimestamp(timestamp) {
             const date = new Date(timestamp * 1000);
             const options = {
@@ -134,7 +169,6 @@ export default {
             };
             return date.getDate() + "." + date.getMonth();
         },
-
         getTimeAgo(dt) {
             const now = Math.floor(Date.now() / 1000);
             const secondsAgo = now - dt;
@@ -146,12 +180,12 @@ export default {
             if (daysAgo > 0) {
                 return `${daysAgo} dnie temu`;
             } else if (hoursAgo > 0) {
-                if (minutesAgo == 1) {
-                    return `${minutesAgo} godzine temu`;
-                } else if (minutesAgo < 5) {
-                    return `${minutesAgo} godziny temu`;
+                if (hoursAgo == 1) {
+                    return `${hoursAgo} godzine temu`;
+                } else if (hoursAgo < 5) {
+                    return `${hoursAgo} godziny temu`;
                 } else {
-                    return `${minutesAgo} godzin temu`;
+                    return `${hoursAgo} godzin temu`;
                 }
             } else if (minutesAgo > 0) {
                 if (minutesAgo == 1) {
@@ -162,16 +196,124 @@ export default {
                     return `${minutesAgo} minut temu`;
                 }
             } else {
-                if (minutesAgo == 1) {
-                    return `${minutesAgo} sekunde temu`;
-                } else if (minutesAgo < 5) {
-                    return `${minutesAgo} sekundy temu`;
+                if (secondsAgo == 1) {
+                    return `${secondsAgo} sekunde temu`;
+                } else if (secondsAgo < 5 && secondsAgo != 0) {
+                    return `${secondsAgo} sekundy temu`;
                 } else {
-                    return `${minutesAgo} sekund temu`;
+                    return `${secondsAgo} sekund temu`;
                 }
             }
         },
-
+        update_chart(lables, datas, min, max, text) {
+            this.prediction_temperature = {
+                labels: lables,
+                datasets: datas
+            };
+            this.chartOptions = {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Wykresy'
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Data'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: text
+                        },
+                        min: min,
+                        max: max
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                },
+            }
+        },
+        chart_temperature() {
+            let dataset = [];
+            let feels_like = [];
+            let lables = [];
+            this.prediction_data.list.forEach((element) => {
+                lables.push(convertUnixTimestampFull(element.dt));
+                dataset.push(kelvinToCelsius(element.main.temp));
+                feels_like.push(kelvinToCelsius(element.main.feels_like));
+            });
+            let datas = [];
+            datas.push({
+                data: dataset,
+                tension: 0.3,
+                pointRadius: 0,
+                borderColor: "#0C359E",
+                label: "Temperatura"
+            });
+            datas.push({
+                data: feels_like,
+                tension: 0.3,
+                pointRadius: 0,
+                borderColor: "#EE99C2",
+                label: "Odczuwalna temperatura"
+            });
+            let min = Math.min(Math.floor(Math.min.apply(Math, dataset) / 10) * 10, Math.floor(Math.min.apply(Math, feels_like) / 10) * 10);
+            let max = Math.max(Math.ceil(Math.max.apply(Math, dataset) / 10) * 10, Math.ceil(Math.max.apply(Math, feels_like) / 10) * 10);
+            let text = 'Temperatura (°C)';
+            this.update_chart(lables, datas, min, max, text);
+        },
+        chart_humidity() {
+            let dataset = [];
+            let lables = [];
+            this.prediction_data.list.forEach((element) => {
+                lables.push(this.convertUnixTimestampFull(element.dt));
+                dataset.push(element.main.humidity);
+            });
+            let datas = [];
+            datas.push({
+                data: dataset,
+                tension: 0.3,
+                pointRadius: 0,
+                borderColor: "#0C359E",
+                label: "Wilgotnosc"
+            });
+            let min = Math.floor(Math.min.apply(Math, dataset) / 10) * 10;
+            let max = Math.ceil(Math.max.apply(Math, dataset) / 10) * 10;
+            let text = "Wilgotnosc(%)";
+            this.update_chart(lables, datas, min, max, text);
+        },
+        chart_pressure() {
+            let dataset = [];
+            let lables = [];
+            this.prediction_data.list.forEach((element) => {
+                lables.push(convertUnixTimestampFull(parseInt(element.dt)));
+                dataset.push(element.main.pressure);
+            });
+            let datas = [];
+            datas.push({
+                data: dataset,
+                tension: 0.3,
+                pointRadius: 0,
+                borderColor: "#0C359E",
+                label: "Cisnienie"
+            });
+            let min = Math.floor(Math.min.apply(Math, dataset) / 10) * 10;
+            let max = Math.ceil(Math.max.apply(Math, dataset) / 10) * 10;
+            let text = "Cisnienie(Pa)"
+            this.update_chart(lables, datas, min, max, text);
+        },
         async search_place() {
             this.isLoading = true;
             let url = "https://api.openweathermap.org/data/2.5/weather?lat=";
@@ -257,16 +399,16 @@ export default {
                             display: true,
                             title: {
                                 display: true,
-                                text: 'Month'
+                                text: 'Data'
                             }
                         },
                         y: {
                             display: true,
                             title: {
                                 display: true,
-                                text: 'Value'
+                                text: 'Temperatura(°C)'
                             },
-                            min:Math.min(Math.floor(Math.min.apply(Math, dataset) / 10) * 10, Math.floor(Math.min.apply(Math, feels_like) / 10) * 10),
+                            min: Math.min(Math.floor(Math.min.apply(Math, dataset) / 10) * 10, Math.floor(Math.min.apply(Math, feels_like) / 10) * 10),
                             max: Math.max(Math.ceil(Math.max.apply(Math, dataset) / 10) * 10, Math.ceil(Math.max.apply(Math, feels_like) / 10) * 10)
                         }
                     },
@@ -307,26 +449,66 @@ export default {
 </script>
 
 <style scoped>
+#data {
+    display: flex;
+    margin: auto;
+}
+
+#weather {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 10px;
+}
+
+#degrees {
+    display: flex;
+}
+
+#info {
+    padding-top: 10px;
+    padding-left: 10px;
+    line-height: 2%;
+    font-size: 15px;
+}
+
+#city {
+    padding: 2%;
+}
+
+#left {
+    width: 50%;
+    display: flex;
+}
+
+#right {
+    line-height: 5%;
+    width: 50%;
+    text-align: right;
+}
+
 #searching {
     margin: auto;
-    width: 40%;
+    width: 30%;
+    padding-top: 2%;
 }
+
 #top {
-    display:flex;
+    display: flex;
 }
-#celcius {
-    display:flex;
-}
-#flag {
-    
-    margin-left: 80%;
-}
+
 #chart {
     border: 5px solid;
-    margin: auto;
+    margin-left: 10%;
+    margin-top: 2%;
     width: 80%;
-    padding: 10px;
     background-color: #F6F5F5;
+    padding: 1%;
+}
+
+sup {
+    vertical-align: super;
+    font-size: smaller;
+    font-weight: 50;
 }
 
 .clear-sky {
@@ -339,6 +521,26 @@ export default {
 
 .rainy {
     background-color: #DEAC80;
+}
+
+#following_days {
+    padding:5%;
+    display: flex;
+    justify-content: space-between;
+}
+
+.day {
+    display: flex;
+    flex-direction: column;
+    border-radius: 10px; 
+    background-color: #ccc;
+    text-align: center;
+    padding: 5px;
+    transition: background-color 0.3s ease; 
+}
+
+.day:hover {
+    background-color: #999;
 }
 
 .thunderstorm {
@@ -354,26 +556,32 @@ export default {
 }
 
 input[type="text"] {
-  padding: 10px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  width: 200px; 
-  margin-right: 10px;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    width: 200px;
+    margin-right: 10px;
+}
+
+#chart_options {
+    padding: 1%;
+    display: flex;
+    gap: 10px;
 }
 
 button {
-  padding: 10px 20px;
-  font-size: 16px;
-  background-color: #EE99C2; 
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #EE99C2;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
 button:hover {
-  background-color: #0C359E; 
+    background-color: #0C359E;
 }
 
 .loader {
